@@ -6,8 +6,6 @@ No backend or server-side processing is required.
 **Live Demo:** (GitHub Pages)  
 > https://eunbiyoon.github.io/grayify/
 
-**Source Code:** (GitHub Repository)  
-> https://github.com/EunbiYoon/grayify
 ---
 
 ## Features
