@@ -4,10 +4,10 @@ A static web application that converts an uploaded image to grayscale **entirely
 No backend or server-side processing is required.
 
 **Live Demo:** (GitHub Pages)  
-> https://eunbiyoon.github.io/pyodide/
+> https://eunbiyoon.github.io/grayify/
 
 **Source Code:** (GitHub Repository)  
-> https://github.com/EunbiYoon/pyodide
+> https://github.com/EunbiYoon/grayify
 ---
 
 ## Features

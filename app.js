@@ -1,19 +1,23 @@
-// app.js (module)
-// RULE: At any time, ONLY ONE button is enabled.
-// Mode A (convert):  Convert ENABLED, Download DISABLED
-// Mode B (download): Convert DISABLED, Download ENABLED
+// app.js (ES module)
+//
+// UI rule: ONLY one action is enabled at a time
+// Mode A (Convert):   Convert ENABLED, Download DISABLED
+// Mode B (Download):  Convert DISABLED, Download ENABLED
 
 let pyodide = null;
 let pyReady = false;
 let selectedFile = null;
 
+// Shortcut for DOM access
 const el = (id) => document.getElementById(id);
 
+// Update Pyodide status text
 function setStatus(text) {
   const s = el("pyStatus");
   if (s) s.textContent = text;
 }
 
+// Show user messages (info / warn / error)
 function setMsg(text, kind = "") {
   const m = el("msg");
   if (!m) return;
@@ -21,6 +25,7 @@ function setMsg(text, kind = "") {
   m.dataset.kind = kind;
 }
 
+// Preview original image
 function showOriginal(file) {
   const img = el("origPreview");
   const ph = el("origPlaceholder");
@@ -35,6 +40,7 @@ function showOriginal(file) {
   ph.style.display = "none";
 }
 
+// Preview grayscale image from blob URL
 function showGrayscaleFromUrl(url) {
   const img = el("grayPreview");
   const ph = el("grayPlaceholder");
@@ -48,6 +54,7 @@ function showGrayscaleFromUrl(url) {
   ph.style.display = "none";
 }
 
+// Reset grayscale preview
 function clearGrayscalePreview() {
   const img = el("grayPreview");
   const ph = el("grayPlaceholder");
@@ -62,14 +69,14 @@ function clearGrayscalePreview() {
 }
 
 /* =========================
-   Single-source-of-truth UI modes
+   UI state management
    ========================= */
 
+// Convert enabled (only when ready + file selected)
 function setModeConvertOnly() {
   const convertBtn = el("convertBtn");
   const dl = el("downloadLink");
 
-  // Convert enabled only if pyReady + file selected
   if (convertBtn) {
     convertBtn.classList.remove("is-done");
     convertBtn.disabled = !(pyReady && !!selectedFile);
@@ -82,17 +89,16 @@ function setModeConvertOnly() {
   }
 }
 
+// Download enabled, Convert disabled
 function setModeDownloadOnly(downloadUrl, downloadName) {
   const convertBtn = el("convertBtn");
   const dl = el("downloadLink");
 
-  // Convert OFF
   if (convertBtn) {
     convertBtn.disabled = true;
     convertBtn.classList.add("is-done");
   }
 
-  // Download ON
   if (dl) {
     dl.href = downloadUrl;
     dl.download = downloadName || "grayscale.png";
@@ -101,13 +107,14 @@ function setModeDownloadOnly(downloadUrl, downloadName) {
   }
 }
 
+// Remove file extension
 function stripExt(name) {
   const i = name.lastIndexOf(".");
   return i >= 0 ? name.slice(0, i) : name;
 }
 
 /* =========================
-   Pyodide
+   Pyodide initialization
    ========================= */
 
 async function initPyodide() {
@@ -120,26 +127,23 @@ async function initPyodide() {
   await pyodide.loadPackage("pillow");
 
   setStatus("Loading image_ops.py…");
-  // 현재 네 경로가 utils/image_ops.py로 되어 있음 :contentReference[oaicite:1]{index=1}
   const resp = await fetch(`./utils/image_ops.py?v=${Date.now()}`, { cache: "no-store" });
-  if (!resp.ok) throw new Error("Failed to fetch image_ops.py (path/deploy 확인).");
+  if (!resp.ok) throw new Error("Failed to load image_ops.py");
   const pyCode = await resp.text();
   pyodide.runPython(pyCode);
 
   pyReady = true;
   setStatus("Ready");
 
-  // Pyodide가 준비되면, 현재 상태에 맞게 모드 재적용
-  // (파일이 선택돼있으면 ConvertOnly로 Convert가 켜짐)
+  // Re-apply UI state after Pyodide is ready
   setModeConvertOnly();
 }
 
 /* =========================
-   Convert
+   Image conversion
    ========================= */
 
 async function convertToGrayscale() {
-  // Convert 버튼은 이 함수 호출 시점에 이미 enabled여야 정상
   if (!pyReady || !selectedFile) {
     setMsg("Please wait for Pyodide and select an image.", "warn");
     setModeConvertOnly();
@@ -154,31 +158,31 @@ async function convertToGrayscale() {
   let pyResult = null;
 
   try {
+    // Read image bytes
     const ab = await selectedFile.arrayBuffer();
     const u8 = new Uint8Array(ab);
     pyBytes = pyodide.toPy(u8);
 
+    // Call Python grayscale function
     fn = pyodide.globals.get("to_grayscale_png");
     pyResult = fn(pyBytes);
     const result = pyResult.toJs();
 
     if (!result || result.ok !== true) {
-      const err = result?.error || "Conversion failed (unknown error).";
       setStatus("Error");
-      setMsg(err, "error");
-
-      // 실패하면 다시 ConvertOnly 유지 (Download는 계속 비활성)
+      setMsg(result?.error || "Conversion failed.", "error");
       setModeConvertOnly();
       return;
     }
 
-    const outU8 = result.data instanceof Uint8Array ? result.data : new Uint8Array(result.data);
+    // Create output image
+    const outU8 = new Uint8Array(result.data);
     const blob = new Blob([outU8], { type: "image/png" });
     const url = URL.createObjectURL(blob);
 
     showGrayscaleFromUrl(url);
 
-    // ✅ 변환 성공 순간에 즉시 "DownloadOnly"로 전환 => 동시에 켜질 일이 없음
+    // Switch to Download-only mode
     const dlName = `${stripExt(selectedFile.name)}_gray.png`;
     setModeDownloadOnly(url, dlName);
 
@@ -190,6 +194,7 @@ async function convertToGrayscale() {
     setMsg(e?.message || String(e), "error");
     setModeConvertOnly();
   } finally {
+    // Cleanup Pyodide objects
     try { pyResult?.destroy?.(); } catch {}
     try { fn?.destroy?.(); } catch {}
     try { pyBytes?.destroy?.(); } catch {}
@@ -197,7 +202,7 @@ async function convertToGrayscale() {
 }
 
 /* =========================
-   UI bindings
+   UI bindings & events
    ========================= */
 
 function bindUI() {
@@ -208,21 +213,20 @@ function bindUI() {
   const downloadLink = el("downloadLink");
 
   if (!dropZone || !fileInput || !fileName || !convertBtn || !downloadLink) {
-    throw new Error("Missing required DOM elements. Check index.html ids.");
+    throw new Error("Missing required DOM elements.");
   }
 
-  // Initial state: no file, py not ready => ConvertOnly (Convert disabled, Download disabled)
+  // Initial UI state
   setModeConvertOnly();
 
   function handleFile(file) {
     if (!file) return;
 
-    if (!file.type || !file.type.startsWith("image/")) {
-      setMsg("Only image files are supported (png/jpg/webp…).", "warn");
+    if (!file.type?.startsWith("image/")) {
+      setMsg("Only image files are supported.", "warn");
       fileInput.value = "";
       selectedFile = null;
       fileName.textContent = "No file selected";
-
       clearGrayscalePreview();
       setModeConvertOnly();
       return;
@@ -234,15 +238,15 @@ function bindUI() {
     showOriginal(file);
     clearGrayscalePreview();
 
-    // ✅ 새 파일 선택 = 무조건 ConvertOnly로 리셋 (Download 꺼짐)
-    setMsg(pyReady ? "" : "Pyodide is loading… conversion will be enabled when ready.", "info");
+    // Reset to Convert-only mode
+    setMsg(pyReady ? "" : "Pyodide is loading…", "info");
     setModeConvertOnly();
   }
 
-  // click -> open picker
+  // Click to open file picker
   dropZone.addEventListener("click", () => fileInput.click());
 
-  // drag & drop (CSS: .dropzone.dragover) :contentReference[oaicite:2]{index=2}
+  // Drag & drop support
   dropZone.addEventListener("dragover", (e) => {
     e.preventDefault();
     dropZone.classList.add("dragover");
@@ -260,22 +264,16 @@ function bindUI() {
     handleFile(e.target.files?.[0]);
   });
 
-  // Convert click
-  convertBtn.addEventListener("click", () => {
-    convertToGrayscale();
-  });
+  convertBtn.addEventListener("click", convertToGrayscale);
 
-  // Download click (DownloadOnly 모드에서만 가능)
+  // Download allowed only in Download-only mode
   downloadLink.addEventListener("click", () => {
-    // Download는 enabled일 때만 눌릴 수 있지만, 안전장치
     if (!downloadLink.classList.contains("enabled")) return;
-
-    // 다운로드 후에도 "하나만 활성화" 규칙 유지:
-    // DownloadOnly 계속 유지 (Convert는 계속 OFF)
     setModeDownloadOnly(downloadLink.href, downloadLink.download);
   });
 }
 
+// App entry point
 window.addEventListener("DOMContentLoaded", async () => {
   try {
     bindUI();

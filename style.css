@@ -64,9 +64,6 @@ html, body { height: 100%; font-family: system-ui, -apple-system, BlinkMacSystem
 .filename { font-size: 13px; color: #444; }
 .message { font-size: 13px; color: #555; }
 
-/* =========================
-   Canva-style buttons ONLY
-   ========================= */
 
 /* Convert button (primary action) */
 #convertBtn {
