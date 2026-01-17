@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grayify – Image Grayscale</title>
+
+  <link rel="stylesheet" href="./style.css?v=2" />
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo">Grayify</span>
+      <span class="title">Image Grayscale</span>
+    </div>
+    <div class="topbar-right">
+      <span id="pyStatus" class="status-pill">Loading Pyodide…</span>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h2>Grayscale Converter</h2>
+      <p class="desc">Upload an image and convert it to grayscale using Pyodide.</p>
+
+      <div id="dropZone" class="dropzone" tabindex="0">
+        Drag & drop image<br />or click to upload
+      </div>
+
+      <input id="fileInput" type="file" accept="image/*" hidden />
+      <div id="fileName" class="filename">No file selected</div>
+
+      <button id="convertBtn" disabled>Convert to Grayscale</button>
+
+      <a id="downloadLink" class="download disabled" download="grayscale.png">
+        Download PNG
+      </a>
+
+      <div id="msg" class="message"></div>
+    </aside>
+
+    <!-- Canvas -->
+    <section class="canvas">
+      <div class="canvas-grid">
+        <div class="canvas-cell">
+          <div class="canvas-label">Original</div>
+          <div class="canvas-stage">
+            <img id="origPreview" />
+            <div id="origPlaceholder" class="placeholder">Upload an image</div>
+          </div>
+        </div>
+
+        <div class="canvas-cell">
+          <div class="canvas-label">Grayscale</div>
+          <div class="canvas-stage">
+            <img id="grayPreview" />
+            <div id="grayPlaceholder" class="placeholder">Convert to see result</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
